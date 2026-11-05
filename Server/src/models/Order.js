@@ -83,6 +83,54 @@ const orderSchema = new mongoose.Schema(
       recommendationReason: String,
       decisionTrailId: String,
     },
+    paymentProvider: {
+  type: String,
+  enum: ["razorpay", "paypal"],
+  default: "razorpay",
+},
+paypalOrderId: {
+  type: String,
+  default: null,
+  sparse: true,
+},
+paypalCaptureId: {
+  type: String,
+  default: null,
+},
+sourceCurrency: {
+  type: String,
+  default: "INR",
+},
+sourceTotalAmountINR: {
+  type: Number,
+  default: 0,
+},
+cartId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Cart",
+  default: null,
+},
+
+fulfillmentStatus: {
+  type: String,
+  enum: ["pending", "processing", "completed", "failed"],
+  default: "pending",
+},
+
+fulfilledAt: {
+  type: Date,
+  default: null,
+},
+
+fulfillmentError: {
+  type: String,
+  default: "",
+},
+
+paymentVerifiedAt: {
+  type: Date,
+  default: null,
+},
   },
   {
     timestamps: true,

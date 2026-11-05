@@ -1,25 +1,34 @@
+
 import React, { useState, useEffect } from 'react';
-import { User, CreditCard, ShieldCheck, CheckCircle2, X, Lock, Sparkles, Save, Loader2 } from 'lucide-react';
+import {
+  User,
+  ShieldCheck,
+  CheckCircle2,
+  X,
+  Save,
+  Loader2,
+  Wallet,
+  AlertCircle,
+} from 'lucide-react';
 import { customerApi } from '../../services/api';
 
-export default function CustomerProfileModal({ isOpen, onClose, sessionId, onProfileUpdated }) {
+export default function CustomerProfileModal({
+  isOpen,
+  onClose,
+  sessionId,
+  onProfileUpdated,
+}) {
   const [profile, setProfile] = useState({
     name: 'Alex Vance',
     email: 'alex@agentrelay.ai',
     phone: '+91 9876543210',
-    savedPaymentMethod: {
-      cardHolder: 'Alex Vance',
-      cardNumber: '4532 8912 3491 4912',
-      brand: 'Visa',
-      expiry: '12/28',
-      isPreAuthorizedForAgent: true,
-      maxAutonomousLimit: 10000,
-    },
+    autonomousSpendingLimit: 10000,
   });
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (isOpen && sessionId) {
@@ -29,26 +38,27 @@ export default function CustomerProfileModal({ isOpen, onClose, sessionId, onPro
 
   const fetchProfile = async () => {
     setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
     try {
       const res = await customerApi.getProfile(sessionId);
-      if (res.data.customer) {
-        const c = res.data.customer;
+      const customer = res.data.customer;
+
+      if (customer) {
         setProfile({
-          name: c.name || 'Alex Vance',
-          email: c.email || 'alex@agentrelay.ai',
-          phone: c.phone || '+91 9876543210',
-          savedPaymentMethod: {
-            cardHolder: c.savedPaymentMethod?.cardHolder || c.name || 'Alex Vance',
-            cardNumber: c.savedPaymentMethod?.cardNumberMasked || '4532 8912 3491 4912',
-            brand: c.savedPaymentMethod?.brand || 'Visa',
-            expiry: c.savedPaymentMethod?.expiry || '12/28',
-            isPreAuthorizedForAgent: c.savedPaymentMethod?.isPreAuthorizedForAgent !== false,
-            maxAutonomousLimit: c.savedPaymentMethod?.maxAutonomousLimit || 10000,
-          },
+          name: customer.name || 'Alex Vance',
+          email: customer.email || 'alex@agentrelay.ai',
+          phone: customer.phone || '',
+          autonomousSpendingLimit:
+            customer.autonomousSpendingLimit ?? 10000,
         });
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
+      setErrorMsg(
+        err.response?.data?.message || 'Failed to load buyer profile.'
+      );
     } finally {
       setLoading(false);
     }
@@ -56,19 +66,52 @@ export default function CustomerProfileModal({ isOpen, onClose, sessionId, onPro
 
   const handleSave = async (e) => {
     e.preventDefault();
+
+    const limit = Number(profile.autonomousSpendingLimit);
+
+    if (!Number.isFinite(limit) || limit < 0) {
+      setErrorMsg('Enter a valid non-negative spending limit.');
+      return;
+    }
+
     setSaving(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
     try {
-      const res = await customerApi.updateProfile(sessionId, profile);
-      setSuccessMsg(true);
+      const payload = {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        autonomousSpendingLimit: limit,
+      };
+
+      const res = await customerApi.updateProfile(sessionId, payload);
+      const updatedCustomer = res.data.customer;
+
+      setProfile({
+        name: updatedCustomer.name,
+        email: updatedCustomer.email,
+        phone: updatedCustomer.phone || '',
+        autonomousSpendingLimit:
+          updatedCustomer.autonomousSpendingLimit,
+      });
+
       if (onProfileUpdated) {
-        onProfileUpdated(res.data.customer);
+        onProfileUpdated(updatedCustomer);
       }
+
+      setSuccessMsg('Your buyer preferences have been saved.');
+
       setTimeout(() => {
-        setSuccessMsg(false);
         onClose();
+        setSuccessMsg('');
       }, 1000);
     } catch (err) {
-      console.error('Failed to save customer profile:', err);
+      console.error('Failed to save buyer profile:', err);
+      setErrorMsg(
+        err.response?.data?.message || 'Failed to save buyer preferences.'
+      );
     } finally {
       setSaving(false);
     }
@@ -77,175 +120,175 @@ export default function CustomerProfileModal({ isOpen, onClose, sessionId, onPro
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
       <div className="w-full max-w-lg bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-5 relative">
-        
-        {/* Close Button */}
+
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 bg-slate-50 border border-slate-200 text-xs shadow-xs transition-colors"
+          disabled={saving}
+          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 bg-slate-50 border border-slate-200 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
 
-        {/* Header */}
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shadow-xs">
+        <div className="flex items-center space-x-3 pr-8">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
             <User className="w-5 h-5" />
           </div>
+
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Buyer Profile & Payment Vault</h3>
-            <p className="text-xs text-slate-500">Manage saved payment methods and autonomous AI pre-authorization</p>
+            <h3 className="font-bold text-slate-900 text-base">
+              Buyer Profile & Preferences
+            </h3>
+            <p className="text-xs text-slate-500">
+              Manage your account and AI spending policy.
+            </p>
           </div>
         </div>
 
         {loading ? (
           <div className="py-8 text-center space-y-2">
             <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mx-auto" />
-            <p className="text-xs text-slate-500">Loading Profile Vault...</p>
+            <p className="text-xs text-slate-500">
+              Loading buyer profile...
+            </p>
           </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-4 text-xs">
-            
-            {/* Customer Personal Details */}
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="space-y-3">
+              <h4 className="font-bold text-slate-800">
+                Personal Details
+              </h4>
+
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Full Name</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   value={profile.name}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+                  onChange={(e) =>
+                    setProfile({ ...profile, name: e.target.value })
+                  }
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Email Address</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   value={profile.email}
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+                  onChange={(e) =>
+                    setProfile({ ...profile, email: e.target.value })
+                  }
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500"
                   required
                 />
               </div>
-            </div>
-
-            {/* Saved Payment Card Box */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-200 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-indigo-900 font-bold">
-                  <CreditCard className="w-4 h-4 text-indigo-600" />
-                  <span>Saved Payment Card (Tokenized Vault)</span>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                  {profile.savedPaymentMethod.brand}
-                </span>
-              </div>
 
               <div>
-                <label className="block text-slate-600 text-[11px] font-medium mb-1">Cardholder Name</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Phone Number
+                </label>
                 <input
                   type="text"
-                  value={profile.savedPaymentMethod.cardHolder}
+                  value={profile.phone}
                   onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      savedPaymentMethod: { ...profile.savedPaymentMethod, cardHolder: e.target.value },
-                    })
+                    setProfile({ ...profile, phone: e.target.value })
                   }
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500"
                 />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className="block text-slate-600 text-[11px] font-medium mb-1">Card Number</label>
-                  <input
-                    type="text"
-                    value={profile.savedPaymentMethod.cardNumber}
-                    onChange={(e) =>
-                      setProfile({
-                        ...profile,
-                        savedPaymentMethod: { ...profile.savedPaymentMethod, cardNumber: e.target.value },
-                      })
-                    }
-                    placeholder="4532 8912 3491 4912"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 text-[11px] font-medium mb-1">Card Network</label>
-                  <select
-                    value={profile.savedPaymentMethod.brand}
-                    onChange={(e) =>
-                      setProfile({
-                        ...profile,
-                        savedPaymentMethod: { ...profile.savedPaymentMethod, brand: e.target.value },
-                      })
-                    }
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-900 focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="Visa">Visa</option>
-                    <option value="Mastercard">Mastercard</option>
-                    <option value="Amex">Amex</option>
-                    <option value="Rupay">Rupay</option>
-                  </select>
-                </div>
               </div>
             </div>
 
-            {/* Autonomous AI Pre-Authorization Toggle */}
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2 shadow-xs">
-              <label className="flex items-start space-x-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={profile.savedPaymentMethod.isPreAuthorizedForAgent}
-                  onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      savedPaymentMethod: {
-                        ...profile.savedPaymentMethod,
-                        isPreAuthorizedForAgent: e.target.checked,
-                      },
-                    })
-                  }
-                  className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
+            <div className="border-t border-slate-200 pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-indigo-600" />
+                <h4 className="font-bold text-slate-800">
+                  AI Spending Preferences
+                </h4>
+              </div>
+
+              <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-3">
                 <div>
-                  <span className="font-bold text-emerald-900">
-                    Pre-Authorize AI Sales Agent for Zero-Click Auto Pay
-                  </span>
-                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
-                    Allows AI Sales Agent to autonomously charge your saved card for recommended purchases under <strong>₹10,000</strong> without requiring manual popup authorization.
+                  <label className="block text-indigo-950 font-bold mb-1">
+                    Autonomous Spending Limit (INR)
+                  </label>
+
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-semibold">
+                      ₹
+                    </span>
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={profile.autonomousSpendingLimit}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          autonomousSpendingLimit: e.target.value,
+                        })
+                      }
+                      className="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-3 py-3 text-lg font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 mt-2">
+                    Purchases exceeding this amount require additional
+                    human approval under the current buyer policy.
                   </p>
                 </div>
-              </label>
+
+                <div className="flex items-start gap-2 p-3 bg-white/70 rounded-lg">
+                  <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    This is a spending-policy threshold, not permission
+                    for automatic payment. You must still review and
+                    approve payment through PayPal checkout.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {successMsg && (
-              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2 shadow-xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Profile & Payment Vault saved to database!</span>
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* Save Action Button */}
+            {successMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2"
+              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>Save Buyer Profile & Payment Vault</span>
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span>
+                {saving ? 'Saving...' : 'Save Buyer Preferences'}
+              </span>
             </button>
           </form>
         )}
-
       </div>
     </div>
   );
 }
-

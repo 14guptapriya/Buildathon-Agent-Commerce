@@ -45,8 +45,11 @@ export const agentApi = {
 };
 
 export const paymentApi = {
-  createOrder: (data) => api.post('/payment/create-order', data),
-  verifyPayment: (data) => api.post('/payment/verify', data),
+  createPayPalOrder: (data) =>
+    api.post('/payment/paypal/create-order', data),
+
+  capturePayPalOrder: (data) =>
+    api.post('/payment/paypal/capture-order', data),
 };
 
 export const customerApi = {
@@ -64,5 +67,6 @@ export const orderApi = {
   getSessionOrders: (sessionId) => api.get(`/orders/session/${sessionId}`),
   getOrderById: (orderId) => api.get(`/orders/${orderId}`),
 };
+
 
 export default api;

@@ -57,7 +57,7 @@ export default function BuyerStorefront({ openAiChat, policy, onAddToCart }) {
           </h1>
 
           <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
-            Describe your request naturally. Our AI Sales Agent evaluates specs, negotiates merchant policies, and executes zero-click Razorpay Vault settlement safely under deterministic guardrails.
+            Describe your shopping needs naturally. Your AI Buyer Agent understands your requirements, coordinates with the Merchant Agent to discover suitable products, and evaluates proposals against your spending policies. Review your cart and approve payment securely through PayPal.
           </p>
 
           {/* Quick Demo Action Card */}

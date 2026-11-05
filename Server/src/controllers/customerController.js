@@ -1,27 +1,15 @@
+
 const Customer = require("../models/Customer");
 
 // Get customer profile by sessionId
 exports.getProfile = async (req, res) => {
   try {
     const { sessionId } = req.params;
+
     let customer = await Customer.findOne({ sessionId });
 
     if (!customer) {
-      customer = await Customer.create({
-        sessionId,
-        name: "Alex Vance",
-        email: "alex@agentrelay.ai",
-        savedPaymentMethod: {
-          cardHolder: "Alex Vance",
-          cardNumberMasked: "**** **** **** 4912",
-          last4: "4912",
-          brand: "Visa",
-          expiry: "12/28",
-          isPreAuthorizedForAgent: true,
-          maxAutonomousLimit: 10000,
-          token: "tok_visa_alex_4912",
-        },
-      });
+      customer = await Customer.create({ sessionId });
     }
 
     return res.status(200).json({
@@ -37,41 +25,39 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// Update customer profile & payment vault settings
+// Update buyer profile and spending preferences
 exports.updateProfile = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { name, email, phone, savedPaymentMethod } = req.body;
+
+    const {
+      name,
+      email,
+      phone,
+      autonomousSpendingLimit,
+    } = req.body;
 
     let customer = await Customer.findOne({ sessionId });
+
     if (!customer) {
       customer = new Customer({ sessionId });
     }
 
-    if (name) customer.name = name;
-    if (email) customer.email = email;
-    if (phone) customer.phone = phone;
+    if (name !== undefined) customer.name = name;
+    if (email !== undefined) customer.email = email;
+    if (phone !== undefined) customer.phone = phone;
 
-    if (savedPaymentMethod) {
-      const existing = customer.savedPaymentMethod || {};
-      const cardNumberRaw = savedPaymentMethod.cardNumber || "";
-      const last4Digits = cardNumberRaw ? cardNumberRaw.replace(/\s+/g, "").slice(-4) : (existing.last4 || "4912");
-      const masked = cardNumberRaw ? `**** **** **** ${last4Digits}` : (existing.cardNumberMasked || "**** **** **** 4912");
+    if (autonomousSpendingLimit !== undefined) {
+      const limit = Number(autonomousSpendingLimit);
 
-      customer.savedPaymentMethod = {
-        cardHolder: savedPaymentMethod.cardHolder || existing.cardHolder || customer.name,
-        cardNumberMasked: masked,
-        last4: last4Digits,
-        brand: savedPaymentMethod.brand || existing.brand || "Visa",
-        expiry: savedPaymentMethod.expiry || existing.expiry || "12/28",
-        isPreAuthorizedForAgent: savedPaymentMethod.isPreAuthorizedForAgent !== undefined 
-          ? Boolean(savedPaymentMethod.isPreAuthorizedForAgent) 
-          : existing.isPreAuthorizedForAgent,
-        maxAutonomousLimit: savedPaymentMethod.maxAutonomousLimit !== undefined 
-          ? Number(savedPaymentMethod.maxAutonomousLimit) 
-          : (existing.maxAutonomousLimit || 10000),
-        token: `tok_${(savedPaymentMethod.brand || "card").toLowerCase()}_${last4Digits}`,
-      };
+      if (!Number.isFinite(limit) || limit < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Spending limit must be a valid non-negative number.",
+        });
+      }
+
+      customer.autonomousSpendingLimit = limit;
     }
 
     await customer.save();
@@ -86,6 +72,24 @@ exports.updateProfile = async (req, res) => {
       success: false,
       message: "Failed to update customer profile",
       error: error.message,
+    });
+  }
+};
+exports.debugProfile = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const customer = await Customer.findOne({ sessionId });
+
+    return res.json({
+      requestedSessionId: sessionId,
+      customerFound: !!customer,
+      databaseSessionId: customer?.sessionId,
+      autonomousSpendingLimit: customer?.autonomousSpendingLimit,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
     });
   }
 };

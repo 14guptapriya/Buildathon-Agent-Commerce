@@ -68,7 +68,7 @@ export default function OrderConfirmationPage({ completedOrder, sessionId, onBac
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto" />
-        <h3 className="text-base font-bold text-slate-900">Retrieving Official Razorpay Receipt...</h3>
+        <h3 className="text-base font-bold text-slate-900">Retrieving Official Receipt...</h3>
         <p className="text-xs text-slate-500">Fetching order record and AI decision trail from database ledger.</p>
       </div>
     );

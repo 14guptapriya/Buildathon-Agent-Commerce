@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { policyApi, cartApi, customerApi, paymentApi } from './services/api';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import BuyerNavbar from './components/layout/BuyerNavbar';
 import StorefrontPage from './pages/StorefrontPage';
@@ -9,11 +10,11 @@ import LoginPage from './pages/auth/LoginPage';
 import AiShoppingChat from './components/buyer/AiShoppingChat';
 import ApprovalModal from './components/buyer/ApprovalModal';
 import CustomerProfileModal from './components/buyer/CustomerProfileModal';
-import { policyApi, cartApi, customerApi } from './services/api';
 
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const paypalReturnHandled = useRef(false);
 
   // Active Authenticated User State
   const [currentUser, setCurrentUser] = useState(() => {
@@ -37,6 +38,50 @@ function AppContent() {
   useEffect(() => {
     fetchInitialData();
   }, [sessionId]);
+   
+  
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const paypalStatus = params.get("paypal");
+
+  if (paypalStatus === "cancel") {
+    navigate("/", { replace: true });
+    return;
+  }
+
+  if (paypalStatus !== "return" || paypalReturnHandled.current) {
+    return;
+  }
+
+  const paypalOrderId = params.get("token");
+  const dbOrderId = params.get("dbOrderId");
+
+  if (!paypalOrderId || !dbOrderId) {
+    console.error("Missing PayPal return parameters.");
+    return;
+  }
+
+  paypalReturnHandled.current = true;
+
+  paymentApi
+    .capturePayPalOrder({ paypalOrderId, dbOrderId })
+    .then((res) => {
+      if (!res.data?.success || !res.data?.order) {
+        throw new Error(res.data?.message || "Payment capture was not confirmed.");
+      }
+
+      handlePaymentComplete(res.data.order);
+    })
+    .catch((err) => {
+      console.error("PayPal capture failed:", err);
+      window.alert(
+        err.response?.data?.message ||
+        err.message ||
+        "PayPal payment could not be confirmed. Please check your order status."
+      );
+      navigate("/", { replace: true });
+    });
+}, [location.search, navigate]);
 
   const fetchInitialData = async () => {
     try {

@@ -7,11 +7,11 @@ const policyRoutes = require("./routes/policyRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const auditRoutes = require("./routes/auditRoutes");
 const agentRoutes = require("./routes/agentRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const authRoutes = require("./routes/authRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const merchantRoutes = require("./routes/merchantRoutes");
+const paypalRoutes = require("./routes/paypalRoutes");
 
 const app = express();
 
@@ -31,11 +31,11 @@ app.use("/api/policy", policyRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/agent", agentRoutes);
-app.use("/api/payment", paymentRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/merchant", merchantRoutes);
+app.use("/api/payment/paypal", paypalRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({

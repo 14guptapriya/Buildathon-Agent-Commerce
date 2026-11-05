@@ -22,14 +22,23 @@ class PolicyService {
    * @param {number} discountPercent - Discount percentage requested by AI
    * @param {string} merchantId
    */
-  static async evaluatePurchase(amount, discountPercent = 0, merchantId = "default_merchant") {
+  static async evaluatePurchase(
+  amount,
+  discountPercent = 0,
+  merchantId = "default_merchant",
+  buyerAutoLimit = null
+) {
     const policy = await this.getPolicy(merchantId);
+    const approvalLimit =
+  buyerAutoLimit !== null
+    ? Number(buyerAutoLimit)
+    : policy.autonomousPurchaseLimit;
 
     const result = {
       allowed: true,
       requiresApproval: false,
       amount,
-      autonomousPurchaseLimit: policy.autonomousPurchaseLimit,
+      autonomousPurchaseLimit: approvalLimit,
       dailySpendingLimit: policy.dailySpendingLimit,
       currentDailySpend: policy.currentDailySpend,
       maxDiscountPercent: policy.maxDiscountPercent,
@@ -56,16 +65,17 @@ class PolicyService {
     }
 
     // 3. Autonomous purchase limit check (Triggers human approval)
-    if (amount > policy.autonomousPurchaseLimit) {
-      result.requiresApproval = true;
-      result.reasons.push(
-        `Total amount (₹${amount.toLocaleString()}) exceeds the autonomous spending limit of ₹${policy.autonomousPurchaseLimit.toLocaleString()}. Customer approval required before payment.`
-      );
-    } else {
-      result.reasons.push(
-        `Total amount (₹${amount.toLocaleString()}) is within the autonomous spending limit of ₹${policy.autonomousPurchaseLimit.toLocaleString()}.`
-      );
-    }
+    
+if (amount > approvalLimit) {
+  result.requiresApproval = true;
+  result.reasons.push(
+    `Total amount (₹${amount.toLocaleString()}) exceeds the buyer's autonomous spending limit of ₹${approvalLimit.toLocaleString()}. Customer approval required.`
+  );
+} else {
+  result.reasons.push(
+    `Total amount (₹${amount.toLocaleString()}) is within the buyer's autonomous spending limit of ₹${approvalLimit.toLocaleString()}.`
+  );
+}
 
     return result;
   }

@@ -60,96 +60,43 @@ export default function AiShoppingChat({ sessionId, onAgentResponse, onRequestAp
     }
   };
 
-  const handleDirectCheckout = async () => {
-    if (!chatResult || checkingOut) return;
-    setCheckingOut(true);
+  
+const handleDirectCheckout = async () => {
+  if (!chatResult || checkingOut) return;
 
-    try {
-      const res = await paymentApi.createOrder({
-        sessionId,
-        cartId: chatResult.cart?.id || chatResult.cart?._id,
-        isApproved: false, // Under limit, autonomous approval
-      });
+  setCheckingOut(true);
 
-      const { order, razorpayOrder, keyId } = res.data;
-      const rzpKey = keyId || 'rzp_test_TY0D8SOVosBKXb';
+  try {
+    const res = await paymentApi.createPayPalOrder({
+      sessionId,
+      cartId: chatResult.cart?.id || chatResult.cart?._id,
+      isApproved: true,
+    });
 
-      const options = {
-        key: rzpKey,
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency || 'INR',
-        name: 'AgentRelay Flagship',
-        description: `Order #${order.orderNumber} - Autonomous AI Order`,
-        image: chatResult.primaryProduct?.imageUrl || 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?q=80&w=200',
-        order_id: (razorpayOrder.id && !razorpayOrder.id.startsWith('order_test_')) ? razorpayOrder.id : undefined,
-        handler: async function (response) {
-          try {
-            const verifyRes = await paymentApi.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id || razorpayOrder.id,
-              razorpay_payment_id: response.razorpay_payment_id || `pay_test_${Date.now()}`,
-              razorpay_signature: response.razorpay_signature || 'verified_test_sig',
-              dbOrderId: order._id,
-            });
+    const { approvalUrl } = res.data;
 
-            if (onPaymentComplete) {
-              onPaymentComplete(verifyRes.data.order);
-            }
-            onClose();
-          } catch (vErr) {
-            console.error('Payment verification failed:', vErr);
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setCheckingOut(false);
-          },
-        },
-        prefill: {
-          name: 'Demo Buyer',
-          email: 'buyer@agentrelay.ai',
-          contact: '9876543210',
-        },
-        theme: {
-          color: '#10B981',
-        },
-      };
-
-      if (window.Razorpay) {
-        try {
-          const rzp = new window.Razorpay(options);
-          rzp.open();
-        } catch (e) {
-          const verifyRes = await paymentApi.verifyPayment({
-            razorpay_order_id: razorpayOrder.id,
-            razorpay_payment_id: `pay_test_${Date.now()}`,
-            razorpay_signature: 'test_mode_signature',
-            dbOrderId: order._id,
-          });
-
-          if (onPaymentComplete) {
-            onPaymentComplete(verifyRes.data.order);
-          }
-          onClose();
-        }
-      } else {
-        const verifyRes = await paymentApi.verifyPayment({
-          razorpay_order_id: razorpayOrder.id,
-          razorpay_payment_id: `pay_test_${Date.now()}`,
-          razorpay_signature: 'test_mode_signature',
-          dbOrderId: order._id,
-        });
-
-        if (onPaymentComplete) {
-          onPaymentComplete(verifyRes.data.order);
-        }
-        onClose();
-      }
-    } catch (err) {
-      console.error('Direct checkout failed:', err);
-    } finally {
-      setCheckingOut(false);
+    if (!approvalUrl) {
+      throw new Error("PayPal approval URL was not returned by the backend.");
     }
-  };
+
+    // Redirect buyer to PayPal Sandbox for payment approval
+    window.location.assign(approvalUrl);
+
+  } catch (err) {
+    console.error(
+      "PayPal checkout failed:",
+      err.response?.data || err.message
+    );
+
+    alert(
+      err.response?.data?.message ||
+      err.message ||
+      "Unable to initiate PayPal checkout."
+    );
+
+    setCheckingOut(false);
+  }
+};
 
   const clearChat = () => {
     setChatResult(null);
@@ -226,7 +173,7 @@ export default function AiShoppingChat({ sessionId, onAgentResponse, onRequestAp
             <div className="text-[11px] text-indigo-700/80 space-y-1 font-medium">
               <div>• OBSERVE: Parsing user prompt intent</div>
               <div>• REASON: Searching merchant catalog items</div>
-              <div>• POLICY CHECK: Evaluating ₹10,000 limit</div>
+              <div>• POLICY CHECK: Evaluating buyer spending limit</div>
             </div>
           </div>
         )}
@@ -393,7 +340,7 @@ export default function AiShoppingChat({ sessionId, onAgentResponse, onRequestAp
                     {checkingOut ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Initiating Razorpay...</span>
+                        <span>Redirecting to PayPal...</span>
                       </>
                     ) : (
                       <>

@@ -53,6 +53,9 @@ const auditEventSchema = new mongoose.Schema(
         "PAYMENT_FAILED",
         "ORDER_CREATED",
         "CAMPAIGN_PROPOSED",
+        "ORDER_FULFILLED",
+"INVENTORY_UPDATED",
+"FULFILLMENT_FAILED",
       ],
     },
     status: {
